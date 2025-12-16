@@ -45,24 +45,34 @@
             <h2>Download Image</h2>
             <div class="form-group">
                 <label>Source Image</label>
-                <input type="text" id="dl-source" placeholder="docker://docker.io/library/alpine:latest">
-                <div class="hint">Example: docker://alpine:latest, docker://quay.io/coreos/etcd:latest</div>
+                <div style="display: flex; gap: 10px;">
+                    <select id="dl-source-transport" style="width: 180px;">
+                        <option value="docker://">docker:// (Registry)</option>
+                        <option value="docker-daemon:">docker-daemon: (Local)</option>
+                        <option value="oci:">oci: (OCI Directory)</option>
+                        <option value="oci-archive:">oci-archive: (OCI Tar)</option>
+                        <option value="docker-archive:">docker-archive: (Docker Tar)</option>
+                        <option value="dir:">dir: (Directory)</option>
+                    </select>
+                    <input type="text" id="dl-source" placeholder="docker.io/library/alpine:latest" style="flex: 1;">
+                </div>
+                <div class="hint">Example: docker.io/library/alpine:latest, quay.io/coreos/etcd:latest</div>
             </div>
             
             <div class="form-group">
                 <label>Output Format</label>
                 <select id="dl-format" onchange="updateDestPlaceholder()">
-                    <option value="dir">Directory (Unpacked layers)</option>
-                    <option value="docker-archive">Docker Archive (.tar)</option>
-                    <option value="oci-archive">OCI Archive (.tar)</option>
-                    <option value="oci">OCI Directory</option>
+                    <option value="docker-archive">Docker Archive (.tar) - Browser Download</option>
+                    <option value="oci-archive">OCI Archive (.tar) - Browser Download</option>
+                    <option value="dir">Directory (Unpacked layers) - Save to Server</option>
+                    <option value="oci">OCI Directory - Save to Server</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label>Output Path</label>
-                <input type="text" id="dl-path" placeholder="./my-image">
-                <div class="hint">Local path to save the image.</div>
+            <div class="form-group" id="path-group">
+                <label>Output Filename</label>
+                <input type="text" id="dl-path" placeholder="image.tar" style="width: 100%;">
+                <div class="hint">Filename for the downloaded archive.</div>
             </div>
 
             <div class="advanced-toggle" onclick="toggleAdvanced('dl-advanced')">Show Advanced Options</div>
@@ -134,45 +144,92 @@
         function updateDestPlaceholder() {
             const format = document.getElementById('dl-format').value;
             const pathInput = document.getElementById('dl-path');
+            const pathGroup = document.getElementById('path-group');
+            const label = pathGroup.querySelector('label');
+            const hint = pathGroup.querySelector('.hint');
+            
             if (format.includes('archive')) {
-                pathInput.placeholder = './image.tar';
+                // Browser download mode
+                pathInput.placeholder = 'image.tar';
+                label.textContent = 'Output Filename';
+                hint.textContent = 'Filename for the downloaded archive.';
             } else {
+                // Server save mode
                 pathInput.placeholder = './my-image-folder';
+                label.textContent = 'Output Path (Server)';
+                hint.textContent = 'Server-side path to save the image.';
             }
         }
 
         async function runDownload() {
-            const source = document.getElementById('dl-source').value;
+            const transport = document.getElementById('dl-source-transport').value;
+            const sourceImage = document.getElementById('dl-source').value;
             const format = document.getElementById('dl-format').value;
             const path = document.getElementById('dl-path').value;
             const os = document.getElementById('dl-os').value;
             const arch = document.getElementById('dl-arch').value;
             const resultDiv = document.getElementById('dl-result');
 
-            if (!source || !path) {
-                resultDiv.innerHTML = '<div class="error">Please provide both Source Image and Output Path.</div>';
+            if (!sourceImage || !path) {
+                resultDiv.innerHTML = '<div class="error">Please provide both Source Image and Output Filename/Path.</div>';
                 return;
             }
 
-            // Construct destination string based on format
-            const destination = `${format}:${path}`;
+            // Construct full source with transport prefix
+            const source = transport + sourceImage;
             
-            resultDiv.innerHTML = 'Downloading... (This may take a while depending on image size)';
+            // Check if it's a browser download (archive format)
+            const isBrowserDownload = format.includes('archive');
             
-            try {
-                const res = await fetch('/api/copy', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ source, destination, os, arch })
-                });
-                const text = await res.text();
-                if (res.ok) {
-                    resultDiv.innerHTML = `<div class="success">Download Successful!<br>Saved to: ${destination}<br><br>${text}</div>`;
-                } else {
-                    resultDiv.innerHTML = `<div class="error">Download Failed:<br>${text}</div>`;
+            if (isBrowserDownload) {
+                // Browser download mode
+                resultDiv.innerHTML = 'Preparing download... (This may take a while depending on image size)';
+                
+                try {
+                    const res = await fetch('/api/download', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ source, format, filename: path, os, arch })
+                    });
+                    
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = path;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        resultDiv.innerHTML = `<div class="success">Download Successful!<br>File: ${path}</div>`;
+                    } else {
+                        const text = await res.text();
+                        resultDiv.innerHTML = `<div class="error">Download Failed:<br>${text}</div>`;
+                    }
+                } catch (e) {
+                    resultDiv.innerHTML = `<div class="error">Network Error: ${e.message}</div>`;
                 }
-            } catch (e) {
-                resultDiv.innerHTML = `<div class="error">Network Error: ${e.message}</div>`;
+            } else {
+                // Server save mode (directory formats)
+                const destination = `${format}:${path}`;
+                resultDiv.innerHTML = 'Saving to server... (This may take a while depending on image size)';
+                
+                try {
+                    const res = await fetch('/api/copy', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ source, destination, os, arch })
+                    });
+                    const text = await res.text();
+                    if (res.ok) {
+                        resultDiv.innerHTML = `<div class="success">Save Successful!<br>Saved to: ${destination}<br><br>${text}</div>`;
+                    } else {
+                        resultDiv.innerHTML = `<div class="error">Save Failed:<br>${text}</div>`;
+                    }
+                } catch (e) {
+                    resultDiv.innerHTML = `<div class="error">Network Error: ${e.message}</div>`;
+                }
             }
         }
 
