@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skopeo UI</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f4f4f4; padding: 15px; overflow-x: auto; border: 1px solid #ddd; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Skopeo UI</h1>
+        
+        <div class="form-group">
+            <label for="imageName">Image Name (e.g., docker://alpine:latest)</label>
+            <input type="text" id="imageName" placeholder="docker://registry/image:tag">
+        </div>
+
+        <button onclick="inspectImage()">Inspect Image</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function inspectImage() {
+            const imageName = document.getElementById('imageName').value;
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Loading...';
+
+            try {
+                const response = await fetch(`/api/inspect?image=${encodeURIComponent(imageName)}`);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    try {
+                        // Try to format JSON
+                        const json = JSON.parse(data);
+                        resultDiv.innerHTML = `<pre>${JSON.stringify(json, null, 2)}</pre>`;
+                    } catch (e) {
+                        resultDiv.innerHTML = `<pre>${data}</pre>`;
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Error: ${data}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Network Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
