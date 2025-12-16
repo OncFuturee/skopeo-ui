@@ -1,52 +1,48 @@
-# Skopeo UI (Fork)
+# Skopeo Image Downloader
 
 [中文](README.md) | **English**
 
 ## English Introduction
 
-This is a fork of [Skopeo](https://github.com/containers/skopeo).
+This is a **Visual Container Image Downloader** based on [Skopeo](https://github.com/containers/skopeo).
+
 **Original Project**: https://github.com/containers/skopeo
 
-### What's New
+### Project Goal
 
-The official Skopeo is a powerful command-line utility for performing various operations on container images and image repositories. However, it lacks a Graphical User Interface (UI) and has limited pre-built resources for Windows.
+While the official Skopeo is a powerful command-line tool, it can be challenging for users who simply want to download images, especially on Windows.
 
-This fork builds upon the original Skopeo and adds the following features:
+This project aims to provide a **simple, intuitive Web Interface** focused on **downloading container images** locally, without requiring Docker Desktop or complex environment configurations.
 
-1.  **Web UI**: A built-in lightweight web server providing a visual interface. Currently supports image inspection, allowing users to quickly view image details.
-2.  **Windows Friendly**: Optimized for Windows environments.
-    *   Fixes the issue where Skopeo defaults to looking for Windows architecture images when running on Windows OS (automatically falling back to Linux/amd64).
-    *   Provides easy build instructions for Windows.
-3.  **Easy Build**: Removes the CGO dependency on `gpgme` by using a pure Go implementation of OpenPGP, making compilation on Windows straightforward.
+### Key Features
+
+1.  **Visual Downloader**: A web interface focused on downloading images, supporting saving as local directories, Tar archives, etc.
+2.  **Windows Friendly**:
+    *   Optimized for Windows environments, fixing default architecture issues (automatically adapts to Linux/amd64).
+    *   Runs without a Docker Daemon.
+3.  **Image Browsing**: Supports viewing remote repository tags and image details (Inspect) to verify download targets.
+4.  **Zero Dependency**: Removes `gpgme` CGO dependency, ready to use out of the box.
 
 ### Usage
 
 #### 1. Build
 
-On Windows, it is recommended to build with the `containers_image_openpgp` tag to avoid complex CGO dependencies:
+On Windows, it is recommended to build with the `containers_image_openpgp` tag:
 
 ```powershell
 go build -tags containers_image_openpgp ./cmd/skopeo
 ```
 
-#### 2. Start UI
+#### 2. Start Downloader
 
-After building, run the `ui` subcommand to start the web server:
+Run the `ui` subcommand to start the web server:
 
 ```powershell
 .\skopeo.exe ui
 ```
 
-Once started, open your browser and visit the address shown in the console (usually [http://localhost:8080](http://localhost:8080)).
+Once started, visit `http://localhost:8080` in your browser to start downloading images.
 
 #### 3. CLI Usage
 
-This project remains fully compatible with all original Skopeo command-line features. For example:
-
-```powershell
-# Inspect an image
-.\skopeo.exe inspect docker://docker.io/library/alpine
-
-# Copy an image
-.\skopeo.exe copy docker://docker.io/library/alpine dir:./my-alpine
-```
+This project remains fully compatible with all original Skopeo command-line features.

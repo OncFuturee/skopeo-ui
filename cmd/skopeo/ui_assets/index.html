@@ -3,56 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skopeo UI</title>
+    <title>Skopeo Image Downloader</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; }
-        button { padding: 10px 20px; background-color: #007bff; color: white; border: none; cursor: pointer; }
-        button:hover { background-color: #0056b3; }
-        pre { background-color: #f4f4f4; padding: 15px; overflow-x: auto; border: 1px solid #ddd; }
-        .error { color: red; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; height: 100vh; background-color: #f0f2f5; }
+        .sidebar { width: 250px; background-color: #2c3e50; color: white; padding: 20px; display: flex; flex-direction: column; }
+        .sidebar h1 { margin-top: 0; font-size: 22px; margin-bottom: 30px; font-weight: 600; }
+        .nav-item { padding: 12px 15px; cursor: pointer; border-radius: 5px; margin-bottom: 5px; transition: background 0.3s; display: flex; align-items: center; }
+        .nav-item:hover { background-color: #34495e; }
+        .nav-item.active { background-color: #3498db; font-weight: 500; }
+        .content { flex: 1; padding: 40px; overflow-y: auto; }
+        .panel { display: none; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 800px; margin: 0 auto; }
+        .panel.active { display: block; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+        input[type="text"], input[type="password"], select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; transition: border-color 0.3s; }
+        input:focus, select:focus { border-color: #3498db; outline: none; }
+        button { padding: 12px 24px; background-color: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; transition: background 0.3s; }
+        button:hover { background-color: #2980b9; }
+        button.secondary { background-color: #95a5a6; }
+        button.secondary:hover { background-color: #7f8c8d; }
+        pre { background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-family: Consolas, monospace; font-size: 13px; }
+        .error { color: #c0392b; background: #fadbd8; padding: 15px; border-radius: 6px; margin-top: 20px; border-left: 4px solid #c0392b; }
+        .success { color: #27ae60; background: #e8f8f5; padding: 15px; border-radius: 6px; margin-top: 20px; border-left: 4px solid #27ae60; }
+        h2 { margin-top: 0; border-bottom: 2px solid #f0f2f5; padding-bottom: 15px; margin-bottom: 25px; color: #2c3e50; }
+        .hint { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
+        .advanced-toggle { color: #3498db; cursor: pointer; font-size: 14px; margin-bottom: 15px; display: inline-block; }
+        .advanced-section { display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 6px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Skopeo UI</h1>
-        
-        <div class="form-group">
-            <label for="imageName">Image Name (e.g., docker://alpine:latest)</label>
-            <input type="text" id="imageName" placeholder="docker://registry/image:tag">
+    <div class="sidebar">
+        <h1>Image Downloader</h1>
+        <div class="nav-item active" onclick="showPanel('download')">Download Image</div>
+        <div class="nav-item" onclick="showPanel('search')">Search & Inspect</div>
+        <div class="nav-item" onclick="showPanel('settings')">Settings (Login)</div>
+    </div>
+
+    <div class="content">
+        <!-- Download Panel -->
+        <div id="download" class="panel active">
+            <h2>Download Image</h2>
+            <div class="form-group">
+                <label>Source Image</label>
+                <input type="text" id="dl-source" placeholder="docker://docker.io/library/alpine:latest">
+                <div class="hint">Example: docker://alpine:latest, docker://quay.io/coreos/etcd:latest</div>
+            </div>
+            
+            <div class="form-group">
+                <label>Output Format</label>
+                <select id="dl-format" onchange="updateDestPlaceholder()">
+                    <option value="dir">Directory (Unpacked layers)</option>
+                    <option value="docker-archive">Docker Archive (.tar)</option>
+                    <option value="oci-archive">OCI Archive (.tar)</option>
+                    <option value="oci">OCI Directory</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Output Path</label>
+                <input type="text" id="dl-path" placeholder="./my-image">
+                <div class="hint">Local path to save the image.</div>
+            </div>
+
+            <div class="advanced-toggle" onclick="toggleAdvanced('dl-advanced')">Show Advanced Options</div>
+            <div id="dl-advanced" class="advanced-section">
+                <div class="form-group">
+                    <label>Override OS</label>
+                    <input type="text" id="dl-os" placeholder="linux" value="linux">
+                </div>
+                <div class="form-group">
+                    <label>Override Architecture</label>
+                    <input type="text" id="dl-arch" placeholder="amd64" value="amd64">
+                </div>
+            </div>
+
+            <button onclick="runDownload()">Start Download</button>
+            <div id="dl-result"></div>
         </div>
 
-        <button onclick="inspectImage()">Inspect Image</button>
+        <!-- Search & Inspect Panel -->
+        <div id="search" class="panel">
+            <h2>Search & Inspect</h2>
+            <div class="form-group">
+                <label>Image Name</label>
+                <input type="text" id="inspect-image" placeholder="docker://docker.io/library/alpine">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="runInspect()">Inspect Details</button>
+                <button class="secondary" onclick="runListTags()">List Tags</button>
+            </div>
+            <div id="inspect-result"></div>
+        </div>
 
-        <div id="result"></div>
+        <!-- Settings Panel -->
+        <div id="settings" class="panel">
+            <h2>Registry Login</h2>
+            <div class="form-group">
+                <label>Registry URL</label>
+                <input type="text" id="login-registry" placeholder="docker.io">
+            </div>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="login-username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-password">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="runLogin()">Login</button>
+                <button class="secondary" onclick="runLogout()">Logout</button>
+            </div>
+            <div id="login-result"></div>
+        </div>
     </div>
 
     <script>
-        async function inspectImage() {
-            const imageName = document.getElementById('imageName').value;
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = 'Loading...';
+        function showPanel(id) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.target.classList.add('active');
+        }
 
+        function toggleAdvanced(id) {
+            const el = document.getElementById(id);
+            el.style.display = el.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function updateDestPlaceholder() {
+            const format = document.getElementById('dl-format').value;
+            const pathInput = document.getElementById('dl-path');
+            if (format.includes('archive')) {
+                pathInput.placeholder = './image.tar';
+            } else {
+                pathInput.placeholder = './my-image-folder';
+            }
+        }
+
+        async function runDownload() {
+            const source = document.getElementById('dl-source').value;
+            const format = document.getElementById('dl-format').value;
+            const path = document.getElementById('dl-path').value;
+            const os = document.getElementById('dl-os').value;
+            const arch = document.getElementById('dl-arch').value;
+            const resultDiv = document.getElementById('dl-result');
+
+            if (!source || !path) {
+                resultDiv.innerHTML = '<div class="error">Please provide both Source Image and Output Path.</div>';
+                return;
+            }
+
+            // Construct destination string based on format
+            const destination = `${format}:${path}`;
+            
+            resultDiv.innerHTML = 'Downloading... (This may take a while depending on image size)';
+            
             try {
-                const response = await fetch(`/api/inspect?image=${encodeURIComponent(imageName)}`);
-                const data = await response.text();
-                
-                if (response.ok) {
+                const res = await fetch('/api/copy', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ source, destination, os, arch })
+                });
+                const text = await res.text();
+                if (res.ok) {
+                    resultDiv.innerHTML = `<div class="success">Download Successful!<br>Saved to: ${destination}<br><br>${text}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">Download Failed:<br>${text}</div>`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="error">Network Error: ${e.message}</div>`;
+            }
+        }
+
+        async function runInspect() {
+            const image = document.getElementById('inspect-image').value;
+            const resultDiv = document.getElementById('inspect-result');
+            resultDiv.innerHTML = 'Loading details...';
+            try {
+                const res = await fetch(`/api/inspect?image=${encodeURIComponent(image)}`);
+                const text = await res.text();
+                if (res.ok) {
                     try {
-                        // Try to format JSON
-                        const json = JSON.parse(data);
+                        const json = JSON.parse(text);
                         resultDiv.innerHTML = `<pre>${JSON.stringify(json, null, 2)}</pre>`;
-                    } catch (e) {
-                        resultDiv.innerHTML = `<pre>${data}</pre>`;
+                    } catch {
+                        resultDiv.innerHTML = `<pre>${text}</pre>`;
                     }
                 } else {
-                    resultDiv.innerHTML = `<div class="error">Error: ${data}</div>`;
+                    resultDiv.innerHTML = `<div class="error">${text}</div>`;
                 }
-            } catch (error) {
-                resultDiv.innerHTML = `<div class="error">Network Error: ${error.message}</div>`;
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="error">${e.message}</div>`;
+            }
+        }
+
+        async function runListTags() {
+            const image = document.getElementById('inspect-image').value;
+            const resultDiv = document.getElementById('inspect-result');
+            resultDiv.innerHTML = 'Loading tags...';
+            try {
+                const res = await fetch(`/api/list-tags?image=${encodeURIComponent(image)}`);
+                const text = await res.text();
+                if (res.ok) {
+                    try {
+                        const json = JSON.parse(text);
+                        resultDiv.innerHTML = `<pre>${JSON.stringify(json, null, 2)}</pre>`;
+                    } catch {
+                        resultDiv.innerHTML = `<pre>${text}</pre>`;
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${text}</div>`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="error">${e.message}</div>`;
+            }
+        }
+
+        async function runLogin() {
+            const registry = document.getElementById('login-registry').value;
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const resultDiv = document.getElementById('login-result');
+            
+            resultDiv.innerHTML = 'Logging in...';
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ registry, username, password })
+                });
+                const text = await res.text();
+                if (res.ok) {
+                    resultDiv.innerHTML = `<div class="success">${text}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${text}</div>`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="error">${e.message}</div>`;
+            }
+        }
+
+        async function runLogout() {
+            const registry = document.getElementById('login-registry').value;
+            const resultDiv = document.getElementById('login-result');
+            
+            if (!registry) {
+                resultDiv.innerHTML = '<div class="error">Please enter Registry URL to logout.</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = 'Logging out...';
+            try {
+                const res = await fetch(`/api/logout?registry=${encodeURIComponent(registry)}`);
+                const text = await res.text();
+                if (res.ok) {
+                    resultDiv.innerHTML = `<div class="success">${text}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${text}</div>`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="error">${e.message}</div>`;
             }
         }
     </script>
