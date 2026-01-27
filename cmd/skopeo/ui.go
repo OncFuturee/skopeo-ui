@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/tar"
 	"bytes"
 	"embed"
 	"encoding/json"
@@ -254,6 +255,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request, global *globalOption
 		// Convert to lowercase and replace special chars
 		sourceRef = strings.ToLower(sourceRef)
 		sourceRef = strings.ReplaceAll(sourceRef, "/", "-")
+		sourceRef = strings.ReplaceAll(sourceRef, ":", "-")
 		destination = fmt.Sprintf("%s:%s:%s", req.Format, unixPath, sourceRef)
 	} else {
 		destination = fmt.Sprintf("%s:%s", req.Format, unixPath)
@@ -292,6 +294,20 @@ func handleDownload(w http.ResponseWriter, r *http.Request, global *globalOption
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Sanitize the tar archive to ensure compatibility with Linux
+	// This fixes issues where paths/symlinks inside the tar have backslashes on Windows
+	if req.Format == "docker-archive" || req.Format == "oci-archive" {
+		sanitizedFile := tempFile + "_sanitized.tar"
+		if err := sanitizeTarArchive(tempFile, sanitizedFile); err != nil {
+			fmt.Printf("Warning: Failed to sanitize tar archive: %v\n", err)
+			// Continue with original file if sanitization fails
+		} else {
+			// Replace original with sanitized version
+			os.Remove(tempFile)
+			tempFile = sanitizedFile
+		}
 	}
 
 	// Read the file and send it to the browser
@@ -477,4 +493,52 @@ func handleLogout(w http.ResponseWriter, r *http.Request, global *globalOptions)
 		return
 	}
 	w.Write([]byte("Logout successful"))
+}
+
+// sanitizeTarArchive reads a tar file and rewrites it with forward slashes in filenames and symlink targets
+// This is necessary when creating archives on Windows for use on Linux
+func sanitizeTarArchive(srcPath, destPath string) error {
+	srcFile, err := os.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	tr := tar.NewReader(srcFile)
+	tw := tar.NewWriter(destFile)
+	defer tw.Close()
+
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		// Fix Windows paths in header name
+		// Replace backslashes with forward slashes
+		header.Name = strings.ReplaceAll(header.Name, "\\", "/")
+
+		// Fix symlink targets
+		if header.Typeflag == tar.TypeSymlink || header.Typeflag == tar.TypeLink {
+			header.Linkname = strings.ReplaceAll(header.Linkname, "\\", "/")
+		}
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		if _, err := io.Copy(tw, tr); err != nil {
+			return err
+		}
+	}
+	return nil
 }

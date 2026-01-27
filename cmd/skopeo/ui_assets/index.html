@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skopeo Image Downloader</title>
+    <title>Skopeo 镜像下载器</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; height: 100vh; background-color: #f0f2f5; }
+        body { font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; height: 100vh; background-color: #f0f2f5; }
         .sidebar { width: 250px; background-color: #2c3e50; color: white; padding: 20px; display: flex; flex-direction: column; }
         .sidebar h1 { margin-top: 0; font-size: 22px; margin-bottom: 30px; font-weight: 600; }
         .nav-item { padding: 12px 15px; cursor: pointer; border-radius: 5px; margin-bottom: 5px; transition: background 0.3s; display: flex; align-items: center; }
@@ -33,18 +33,18 @@
 </head>
 <body>
     <div class="sidebar">
-        <h1>Image Downloader</h1>
-        <div class="nav-item active" onclick="showPanel('download')">Download Image</div>
-        <div class="nav-item" onclick="showPanel('search')">Search & Inspect</div>
-        <div class="nav-item" onclick="showPanel('settings')">Settings (Login)</div>
+        <h1>Skopeo 工具箱</h1>
+        <div class="nav-item active" onclick="showPanel('download')">下载镜像</div>
+        <div class="nav-item" onclick="showPanel('search')">搜索与详情</div>
+        <div class="nav-item" onclick="showPanel('settings')">设置 (登录)</div>
     </div>
 
     <div class="content">
         <!-- Download Panel -->
         <div id="download" class="panel active">
-            <h2>Download Image</h2>
+            <h2>下载镜像</h2>
             <div class="form-group">
-                <label>Source Image</label>
+                <label>源镜像 (支持输入 docker pull 命令)</label>
                 <div style="display: flex; gap: 10px;">
                     <select id="dl-source-transport" style="width: 180px;">
                         <option value="docker://">docker:// (Registry)</option>
@@ -54,75 +54,75 @@
                         <option value="docker-archive:">docker-archive: (Docker Tar)</option>
                         <option value="dir:">dir: (Directory)</option>
                     </select>
-                    <input type="text" id="dl-source" placeholder="docker.io/library/alpine:latest" style="flex: 1;">
+                    <input type="text" id="dl-source" placeholder="例如: docker pull coturn/coturn:edge-alpine" style="flex: 1;">
                 </div>
-                <div class="hint">Example: docker.io/library/alpine:latest, quay.io/coreos/etcd:latest</div>
+                <div class="hint">示例: docker.io/library/alpine:latest, coturn/coturn:edge-alpine, 或直接粘贴 docker pull 命令</div>
             </div>
             
             <div class="form-group">
-                <label>Output Format</label>
+                <label>输出格式</label>
                 <select id="dl-format" onchange="updateDestPlaceholder()">
-                    <option value="docker-archive">Docker Archive (.tar) - Browser Download</option>
-                    <option value="oci-archive">OCI Archive (.tar) - Browser Download</option>
-                    <option value="dir">Directory (Unpacked layers) - Save to Server</option>
-                    <option value="oci">OCI Directory - Save to Server</option>
+                    <option value="docker-archive">Docker 归档 (.tar) - [推荐] 适用于 docker load</option>
+                    <option value="oci-archive">OCI 归档 (.tar) - 适用于 podman load</option>
+                    <option value="dir">目录 (解压层) - 保存到服务器</option>
+                    <option value="oci">OCI 目录 - 保存到服务器</option>
                 </select>
             </div>
 
             <div class="form-group" id="path-group">
-                <label>Output Filename</label>
-                <input type="text" id="dl-path" placeholder="image.tar" style="width: 100%;">
-                <div class="hint">Filename for the downloaded archive.</div>
+                <label>输出文件名 (留空自动命名)</label>
+                <input type="text" id="dl-path" placeholder="自动生成，如: coturn_edge-alpine.tar" style="width: 100%;">
+                <div class="hint">下载归档的文件名。如果留空，将根据镜像名称自动生成。</div>
             </div>
 
-            <div class="advanced-toggle" onclick="toggleAdvanced('dl-advanced')">Show Advanced Options</div>
+            <div class="advanced-toggle" onclick="toggleAdvanced('dl-advanced')">显示高级选项</div>
             <div id="dl-advanced" class="advanced-section">
                 <div class="form-group">
-                    <label>Override OS</label>
+                    <label>覆盖操作系统 (OS)</label>
                     <input type="text" id="dl-os" placeholder="linux" value="linux">
                 </div>
                 <div class="form-group">
-                    <label>Override Architecture</label>
+                    <label>覆盖架构 (Arch)</label>
                     <input type="text" id="dl-arch" placeholder="amd64" value="amd64">
                 </div>
             </div>
 
-            <button onclick="runDownload()">Start Download</button>
+            <button onclick="runDownload()">开始下载</button>
             <div id="dl-result"></div>
         </div>
 
         <!-- Search & Inspect Panel -->
         <div id="search" class="panel">
-            <h2>Search & Inspect</h2>
+            <h2>搜索与详情</h2>
             <div class="form-group">
-                <label>Image Name</label>
+                <label>镜像名称</label>
                 <input type="text" id="inspect-image" placeholder="docker://docker.io/library/alpine">
             </div>
             <div style="display: flex; gap: 10px;">
-                <button onclick="runInspect()">Inspect Details</button>
-                <button class="secondary" onclick="runListTags()">List Tags</button>
+                <button onclick="runInspect()">查看详情</button>
+                <button class="secondary" onclick="runListTags()">列出标签</button>
             </div>
             <div id="inspect-result"></div>
         </div>
 
         <!-- Settings Panel -->
         <div id="settings" class="panel">
-            <h2>Registry Login</h2>
+            <h2>仓库登录</h2>
             <div class="form-group">
-                <label>Registry URL</label>
+                <label>仓库地址</label>
                 <input type="text" id="login-registry" placeholder="docker.io">
             </div>
             <div class="form-group">
-                <label>Username</label>
+                <label>用户名</label>
                 <input type="text" id="login-username">
             </div>
             <div class="form-group">
-                <label>Password</label>
+                <label>密码</label>
                 <input type="password" id="login-password">
             </div>
             <div style="display: flex; gap: 10px;">
-                <button onclick="runLogin()">Login</button>
-                <button class="secondary" onclick="runLogout()">Logout</button>
+                <button onclick="runLogin()">登录</button>
+                <button class="secondary" onclick="runLogout()">登出</button>
             </div>
             <div id="login-result"></div>
         </div>
@@ -150,40 +150,72 @@
             
             if (format.includes('archive')) {
                 // Browser download mode
-                pathInput.placeholder = 'image.tar';
-                label.textContent = 'Output Filename';
-                hint.textContent = 'Filename for the downloaded archive.';
+                pathInput.placeholder = '自动生成，如: coturn_edge-alpine.tar';
+                label.textContent = '输出文件名 (留空自动命名)';
+                hint.textContent = '下载归档的文件名。如果留空，将根据镜像名称自动生成。';
             } else {
                 // Server save mode
                 pathInput.placeholder = './my-image-folder';
-                label.textContent = 'Output Path (Server)';
-                hint.textContent = 'Server-side path to save the image.';
+                label.textContent = '保存路径 (服务端)';
+                hint.textContent = '镜像将在服务器上保存的路径。';
             }
         }
 
         async function runDownload() {
-            const transport = document.getElementById('dl-source-transport').value;
-            const sourceImage = document.getElementById('dl-source').value;
+            let userSource = document.getElementById('dl-source').value.trim();
+            let transport = document.getElementById('dl-source-transport').value;
+            let path = document.getElementById('dl-path').value.trim();
             const format = document.getElementById('dl-format').value;
-            const path = document.getElementById('dl-path').value;
             const os = document.getElementById('dl-os').value;
             const arch = document.getElementById('dl-arch').value;
             const resultDiv = document.getElementById('dl-result');
 
-            if (!sourceImage || !path) {
-                resultDiv.innerHTML = '<div class="error">Please provide both Source Image and Output Filename/Path.</div>';
+            if (!userSource) {
+                resultDiv.innerHTML = '<div class="error">请输入源镜像地址。</div>';
                 return;
             }
 
-            // Construct full source with transport prefix
-            const source = transport + sourceImage;
-            
-            // Check if it's a browser download (archive format)
+            // 处理智能输入：docker pull ...
+            if (userSource.startsWith('docker pull ')) {
+                userSource = userSource.replace('docker pull ', '').trim();
+                // 如果用户输入的是 docker pull，通常是不带 transport 的，强制使用 docker:// 
+                // 但要先检查用户输入里是否已经包含了协议头（虽然 docker pull 通常不带）
+                if (!userSource.includes('://')) {
+                     transport = 'docker://';
+                }
+            }
+
+            // 构建完整 Source
+            let source = userSource;
+            if (!source.includes('://')) {
+                source = transport + source;
+            }
+
+            // 自动生成文件名 (如果是浏览器下载模式)
             const isBrowserDownload = format.includes('archive');
+            if (isBrowserDownload && !path) {
+                // 从 source 中提取有意义的名字
+                // 移除 transport
+                let tempName = source;
+                if (tempName.includes('://')) {
+                    tempName = tempName.split('://')[1];
+                }
+                
+                // 处理 docker.io/library/ 前缀等，让文件名更短
+                tempName = tempName.replace(/^docker\.io\/library\//, '');
+                tempName = tempName.replace(/^docker\.io\//, '');
+                
+                // 将非法文件字符替换为 _
+                // 例如: coturn/coturn:edge-alpine -> coturn_coturn_edge-alpine
+                // 或者用户希望简单点，但为了保证唯一性，全称比较好，只是把 / 和 : 换成 _
+                tempName = tempName.replace(/[\/:]/g, '_');
+                
+                path = tempName + '.tar';
+            }
             
             if (isBrowserDownload) {
                 // Browser download mode
-                resultDiv.innerHTML = 'Preparing download... (This may take a while depending on image size)';
+                resultDiv.innerHTML = `准备下载...<br>源: ${source}<br>文件: ${path}<br>(根据镜像大小可能需要一些时间)`;
                 
                 try {
                     const res = await fetch('/api/download', {
@@ -202,18 +234,22 @@
                         a.click();
                         window.URL.revokeObjectURL(url);
                         document.body.removeChild(a);
-                        resultDiv.innerHTML = `<div class="success">Download Successful!<br>File: ${path}</div>`;
+                        resultDiv.innerHTML = `<div class="success">下载成功！<br>文件: ${path}</div>`;
                     } else {
                         const text = await res.text();
-                        resultDiv.innerHTML = `<div class="error">Download Failed:<br>${text}</div>`;
+                        resultDiv.innerHTML = `<div class="error">下载失败:<br>${text}</div>`;
                     }
                 } catch (e) {
-                    resultDiv.innerHTML = `<div class="error">Network Error: ${e.message}</div>`;
+                    resultDiv.innerHTML = `<div class="error">网络错误: ${e.message}</div>`;
                 }
             } else {
+                if (!path) {
+                    resultDiv.innerHTML = '<div class="error">在服务器保存模式下，必须指定保存路径。</div>';
+                    return;
+                }
                 // Server save mode (directory formats)
                 const destination = `${format}:${path}`;
-                resultDiv.innerHTML = 'Saving to server... (This may take a while depending on image size)';
+                resultDiv.innerHTML = '正在保存到服务器... (根据镜像大小可能需要一些时间)';
                 
                 try {
                     const res = await fetch('/api/copy', {
@@ -223,12 +259,12 @@
                     });
                     const text = await res.text();
                     if (res.ok) {
-                        resultDiv.innerHTML = `<div class="success">Save Successful!<br>Saved to: ${destination}<br><br>${text}</div>`;
+                        resultDiv.innerHTML = `<div class="success">保存成功！<br>路径: ${destination}<br><br>${text}</div>`;
                     } else {
-                        resultDiv.innerHTML = `<div class="error">Save Failed:<br>${text}</div>`;
+                        resultDiv.innerHTML = `<div class="error">保存失败:<br>${text}</div>`;
                     }
                 } catch (e) {
-                    resultDiv.innerHTML = `<div class="error">Network Error: ${e.message}</div>`;
+                    resultDiv.innerHTML = `<div class="error">网络错误: ${e.message}</div>`;
                 }
             }
         }
@@ -236,7 +272,7 @@
         async function runInspect() {
             const image = document.getElementById('inspect-image').value;
             const resultDiv = document.getElementById('inspect-result');
-            resultDiv.innerHTML = 'Loading details...';
+            resultDiv.innerHTML = '正在加载详情...';
             try {
                 const res = await fetch(`/api/inspect?image=${encodeURIComponent(image)}`);
                 const text = await res.text();
@@ -258,7 +294,7 @@
         async function runListTags() {
             const image = document.getElementById('inspect-image').value;
             const resultDiv = document.getElementById('inspect-result');
-            resultDiv.innerHTML = 'Loading tags...';
+            resultDiv.innerHTML = '正在加载标签...';
             try {
                 const res = await fetch(`/api/list-tags?image=${encodeURIComponent(image)}`);
                 const text = await res.text();
@@ -283,7 +319,7 @@
             const password = document.getElementById('login-password').value;
             const resultDiv = document.getElementById('login-result');
             
-            resultDiv.innerHTML = 'Logging in...';
+            resultDiv.innerHTML = '正在登录...';
             try {
                 const res = await fetch('/api/login', {
                     method: 'POST',
@@ -306,11 +342,11 @@
             const resultDiv = document.getElementById('login-result');
             
             if (!registry) {
-                resultDiv.innerHTML = '<div class="error">Please enter Registry URL to logout.</div>';
+                resultDiv.innerHTML = '<div class="error">请输入仓库地址以登出。</div>';
                 return;
             }
 
-            resultDiv.innerHTML = 'Logging out...';
+            resultDiv.innerHTML = '正在登出...';
             try {
                 const res = await fetch(`/api/logout?registry=${encodeURIComponent(registry)}`);
                 const text = await res.text();
